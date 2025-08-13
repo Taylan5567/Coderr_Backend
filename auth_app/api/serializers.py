@@ -1,18 +1,22 @@
 from rest_framework import serializers
-from .models import UserProfile
-from django.contrib.auth.models import User
+from userprofile_app.models import UserProfile
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
 
 class RegistrationSerializer(serializers.ModelSerializer):
     """
     Serializer for registering a new user.
     Includes password confirmation with `repeated_password`.
     """
-    repeated_password = serializers.CharField(write_only=True) 
+
+    repeated_password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True)
+    type = serializers.ChoiceField(choices=UserProfile.TYPE_CHOICES, write_only=True)
 
     class Meta:
-        model = UserProfile 
-        fields = ['username', 'email', 'password', 'repeated_password']
+        model = User 
+        fields = ['username', 'email', 'password', 'repeated_password', 'type']
         extra_kwargs = {
             'password': {
                 'write_only': True 
@@ -36,20 +40,19 @@ class RegistrationSerializer(serializers.ModelSerializer):
         email = self.validated_data['email']
         username = self.validated_data['username']
 
-        if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError("Ein Benutzer mit dieser E-Mail existiert bereits.")
-
-        user = User(
+        user = UserProfile(
             email=email,           
             username=username,
+            type=self.validated_data['type']
         )
 
         if pw != repeated_pw:
             raise serializers.ValidationError({'error': 'Password dont match'})
 
-        user.set_password(pw)
+        
         user.save()
         return user
+
 
     def validate_email(self, value):
         """
@@ -65,3 +68,15 @@ class RegistrationSerializer(serializers.ModelSerializer):
         if UserProfile.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already exists.")
         return value
+    
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField()
+
+    class Meta:
+        fields = ['username', 'password']
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
