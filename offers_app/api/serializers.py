@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from offers_app.models import Offer, OfferDetail
-
+from django.db.models import Min
 
 class OfferDetailsSerializer(serializers.ModelSerializer):
 
@@ -17,9 +17,9 @@ class OfferDetailsSerializer(serializers.ModelSerializer):
             ]
 
 class OfferSerializer(serializers.ModelSerializer):
-    details = OfferDetailsSerializer(many=True)
-    min_price = serializers.SerializerMethodField()
-    delivery_time_in_days  = serializers.SerializerMethodField()
+    details = OfferDetailsSerializer(many=True, read_only=True)
+    min_price = serializers.IntegerField()
+    delivery_time_in_days  = serializers.IntegerField()
     user = serializers.IntegerField(source='id', read_only=True)
 
     class Meta:
@@ -34,7 +34,7 @@ class OfferSerializer(serializers.ModelSerializer):
             'updated_at',
             'details',
             'min_price',
-            'min_delivery_time',
+            'delivery_time_in_days',
         ]
 
     
@@ -45,6 +45,12 @@ class OfferSerializer(serializers.ModelSerializer):
         for detail_data in details_data:
             OfferDetail.objects.update_or_create(offer=offer, **detail_data)
         return offer
+    
+    def get_min_price(self, obj):
+        return obj.details.aggregate(Min('price'))['price__min']
+    
+    def get_delivery_time_in_days(self, obj):
+        return obj.details.aggregate(Min('delivery_time_in_days'))['delivery_time_in_days__min']
     
 
 
@@ -62,7 +68,7 @@ class OfferCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         details = attrs.get('details', [])
         if len(details) < 3:
-            raise serializers.ValidationError("Ein Offer muss mindestens 3 Details haben!")
+            raise serializers.ValidationError("At least 3 details are required.")
         return attrs
 
     def create(self, validated_data):
@@ -76,6 +82,7 @@ class OfferCreateSerializer(serializers.ModelSerializer):
 
 class OfferUpdateSerializer(serializers.ModelSerializer):
     details = OfferDetailsSerializer(many=True)
+    offer_type = serializers.ChoiceField(choices=OfferDetail.OFFER_TYPE, required=False)
     class Meta:
         model = Offer
         fields = [
@@ -83,6 +90,7 @@ class OfferUpdateSerializer(serializers.ModelSerializer):
             'image',
             'description',
             'details',
+            'offer_type',
         ]
 
     def update(self, instance, validated_data):
@@ -91,3 +99,33 @@ class OfferUpdateSerializer(serializers.ModelSerializer):
         for detail_data in details_data:
             OfferDetail.objects.update_or_create(offer=offer, **detail_data)
         return offer
+    
+
+class OfferDetailsSerializer(serializers.ModelSerializer):
+    user = serializers.IntegerField(source='id', read_only=True)
+    
+    class Meta:
+        model = OfferDetail
+        fields = [
+            'id',
+            'user',
+            'title',
+            'image',
+            'description',
+            'created_at',
+            'updated_at',
+            'details'
+        ]
+
+class OneOfferDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OfferDetail
+        fields = [
+            'id',
+            'title',
+            'revisions',
+            'delivery_time_in_days',
+            'price',
+            'features',
+            'offer_type',
+            ]
