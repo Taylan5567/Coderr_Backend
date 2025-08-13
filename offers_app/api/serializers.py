@@ -3,7 +3,6 @@ from offers_app.models import Offer, OfferDetail
 from django.db.models import Min
 
 class OfferDetailsSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = OfferDetail
         fields = [
@@ -14,12 +13,12 @@ class OfferDetailsSerializer(serializers.ModelSerializer):
             'price',
             'features',
             'offer_type',
-            ]
+        ]
 
 class OfferSerializer(serializers.ModelSerializer):
     details = OfferDetailsSerializer(many=True, read_only=True)
-    min_price = serializers.IntegerField()
-    delivery_time_in_days  = serializers.IntegerField()
+    min_price = serializers.SerializerMethodField()
+    delivery_time_in_days  = serializers.SerializerMethodField()
     user = serializers.IntegerField(source='id', read_only=True)
 
     class Meta:
@@ -36,22 +35,13 @@ class OfferSerializer(serializers.ModelSerializer):
             'min_price',
             'delivery_time_in_days',
         ]
-
     
-    
-    def update(self, instance, validated_data):
-        details_data = validated_data.pop('details')
-        offer = super().update(instance, validated_data)
-        for detail_data in details_data:
-            OfferDetail.objects.update_or_create(offer=offer, **detail_data)
-        return offer
     
     def get_min_price(self, obj):
-        return obj.details.aggregate(Min('price'))['price__min']
-    
+        return obj.details.aggregate(v=Min('price'))['v']
+
     def get_delivery_time_in_days(self, obj):
-        return obj.details.aggregate(Min('delivery_time_in_days'))['delivery_time_in_days__min']
-    
+        return obj.details.aggregate(v=Min('delivery_time_in_days'))['v']
 
 
 class OfferCreateSerializer(serializers.ModelSerializer):
@@ -94,29 +84,13 @@ class OfferUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def update(self, instance, validated_data):
-        details_data = validated_data.pop('details')
+        details_data = validated_data.pop('details', None)
         offer = super().update(instance, validated_data)
-        for detail_data in details_data:
-            OfferDetail.objects.update_or_create(offer=offer, **detail_data)
+        if details_data is not None:
+            offer.details.all().delete()
+            OfferDetail.objects.bulk_create([OfferDetail(offer=offer, **d) for d in details_data])
         return offer
     
-
-class OfferDetailsSerializer(serializers.ModelSerializer):
-    user = serializers.IntegerField(source='id', read_only=True)
-    
-    class Meta:
-        model = OfferDetail
-        fields = [
-            'id',
-            'user',
-            'title',
-            'image',
-            'description',
-            'created_at',
-            'updated_at',
-            'details'
-        ]
-
 class OneOfferDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = OfferDetail

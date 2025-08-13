@@ -1,14 +1,11 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from offers_app.models import Offer, OfferDetail
-from .serializers import OfferDetailsSerializer, OfferSerializer, OfferUpdateSerializer, OfferCreateSerializer, OneOfferDetailSerializer
-from rest_framework.generics import ListCreateAPIView
+from .serializers import OfferSerializer, OfferUpdateSerializer, OfferCreateSerializer, OneOfferDetailSerializer
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics
-from .permissions import IsBusinessUser
 from rest_framework import filters
 from django.db.models import Min
 
@@ -43,7 +40,7 @@ class OfferListView(generics.ListCreateAPIView):
 
         price = self.request.query_params.get('price')
         if price:
-            queryset = queryset.filter(min_price__gte=price)  # auf Annotation filtern
+            queryset = queryset.filter(min_price__gte=price)  
 
         return queryset
     

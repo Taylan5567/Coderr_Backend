@@ -7,12 +7,26 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = '__all__'
+        fields = [
+            'id',
+            'customer_user',
+            'business_user',
+            'title',
+            'revisions',
+            'delivery_time_in_days',
+            'price',
+            'features',
+            'offer_type',
+            'status',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = fields
 
 
 
 class OrderCreateSerializer(serializers.Serializer):
-    offer_detail_id = serializers.IntegerField()
+    offer_detail_id = serializers.IntegerField(write_only=True)
     
     class Meta:
         model = Order
@@ -25,44 +39,41 @@ class OrderCreateSerializer(serializers.Serializer):
         
 
     def validate_offer_detail_id(self, value):
-        if not OfferDetail.objects.filter(id=value).exists():
-            raise serializers.ValidationError("Offer detail does not exist.")
-        return value
+        try:
+            offer_detail = OfferDetail.objects.get(id=value)
+        except OfferDetail.DoesNotExist:
+            raise serializers.ValidationError("Offer detail with this ID does not exist.")
+        return offer_detail
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        if user.type != 'customer':
+            raise serializers.ValidationError("Only Customers can create orders.")
+        return attrs
 
     def create(self, validated_data):
-        request = self.context['request']
-        customer = request.user
-        offer_detail = (OfferDetail.objects
-                        .select_related('offer__user')
-                        .get(id=validated_data['offer_detail_id']))
+        offer_detail = validated_data.pop('offer_detail_id')
+        user = self.context['request'].user
 
-        if offer_detail.offer.user_id == customer.id:
-            raise serializers.ValidationError("You cannot order your own offer.")
-
-        order = Order.objects.create(
-            customer_user=customer,
-            business_user=offer_detail.offer.user,
-            offer_detail=offer_detail,
-            title=offer_detail.title,
-            revisions=offer_detail.revisions,
-            delivery_time_in_days=offer_detail.delivery_time_in_days,
-            price=offer_detail.price,
-            features=offer_detail.features,
-            offer_type=offer_detail.offer_type,
-            status='in_progress',
+        offer = offer_detail.offer
+        return Order.objects.create(
+            customer_user = user,
+            business_user = offer.user,
+            offer_detail = offer_detail,
+            title = offer_detail.title,
+            revisions = offer_detail.revisions,
+            delivery_time_in_days = offer_detail.delivery_time_in_days,
+            price = offer_detail.price,
+            features = offer_detail.features,
+            offer_type = offer_detail.offer_type,
         )
-        return order
     
     
 
 class OrderStatusUpdateSerializer(serializers.ModelSerializer):
-    offer_detail_id = serializers.IntegerField()
 
     class Meta:
-        model = Order
-        fields = ['id', 'customer_user', 'business_user', 'title', 'revisions', 'delivery_time_in_days',
-                   'price', 'features', 'offer_type', 'status', 'created_at', 'updated_at', 'offer_detail_id'
-                   ]
-        read_only_fields = ['id', 'customer_user', 'business_user', 'title', 'revisions', 'delivery_time_in_days',
-                   'price', 'features', 'offer_type', 'created_at', 'updated_at'
-                   ]
+        model = Order   
+        fields = [
+            'status',
+        ]
