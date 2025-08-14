@@ -199,14 +199,3 @@ class OneOfferDetailSerializer(serializers.ModelSerializer):
             'offer_type',
             ]
         
-    def to_representation(self, instance):
-        """
-        Normalize None values to empty strings for selected optional fields.
-
-        This helps clients avoid extra null checks when rendering.
-        """
-        data = super().to_representation(instance)
-        for space in ["first_name", "last_name", "location", "tel", "description", "working_hours"]:
-            if data.get(space) is None:
-                data[space] = ""
-        return data
