@@ -1,5 +1,5 @@
 from .serializers import ReviewSerializer, ReviewUpdateSerializer
-from reviews_app.models import Review, BaseInformation
+from reviews_app.models import Review
 from rest_framework import filters, generics
 from rest_framework.response import Response
 from rest_framework import status
@@ -7,19 +7,48 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from django.db.models import Avg
 from userprofile_app.models import UserProfile
-from django_filters.rest_framework import DjangoFilterBackend
 from offers_app.models import Offer
 
 
 
 
 class ReviewsList(generics.ListCreateAPIView):
+    """
+    List and create reviews.
+
+    GET:
+        Returns a list of reviews. Supports ordering by "created_at", "rating",
+        and "updated_at". You can filter the list with query parameters:
+
+            - business_user_id: only reviews for this business user
+            - reviewer_id: only reviews written by this reviewer
+
+        Response: 200 OK
+            [
+              { ... review fields ... },
+              ...
+            ]
+
+    POST:
+        Creates a new review. The authenticated user must be a customer.
+        The "reviewer" field is set automatically to the current user.
+
+        Responses:
+            201 Created: returns the created review
+            400 Bad Request: invalid data
+            403 Forbidden: not authenticated or not a customer
+    """
     permission_classes = [IsAuthenticated]
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     ordering_fields = ['created_at', 'rating', 'updated_at']
     def get_queryset(self):
+        """
+        Optionally filter the reviews by:
+          - business_user_id (query param)
+          - reviewer_id (query param)
+        """
         queryset = Review.objects.all()
 
         business_user_id = self.request.query_params.get('business_user_id')
@@ -33,9 +62,21 @@ class ReviewsList(generics.ListCreateAPIView):
         return queryset
 
     def perform_create(self, serializer):
+        """
+        Set the reviewer to the current authenticated user when creating.
+        """
         serializer.save(reviewer=self.request.user)
 
     def post(self, request, *args, **kwargs):
+        """
+        Create a new review.
+
+        Requirements:
+            - user must be authenticated AND must be of type 'customer'.
+
+        Returns:
+            201 with created review on success, or appropriate error response.
+        """
         serializer = ReviewSerializer(data=request.data, context={'request': request})
         
         if not request.user.is_authenticated or request.user.type != 'customer':
@@ -50,6 +91,18 @@ class ReviewsList(generics.ListCreateAPIView):
 
 
 class ReviewDetail(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a single review.
+
+    Permissions:
+        - The user must be authenticated.
+
+    PATCH:
+        Partially update fields of your own review.
+
+    DELETE:
+        Permanently remove your own review.
+    """
     permission_classes = [IsAuthenticated]
     queryset = Review.objects.all()
     serializer_class = ReviewUpdateSerializer
@@ -57,6 +110,11 @@ class ReviewDetail(generics.RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = 'id'
     
     def patch(self, request, id):
+        """
+        Partially update a review.
+
+        Only the user who created the review (reviewer) may update it.
+        """
         review = get_object_or_404(Review, id=id)
         data = request.data.copy()
         serializer = ReviewSerializer(review, data=data, partial=True, context={'request': request})
@@ -73,6 +131,11 @@ class ReviewDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
     def delete(self, request, id):
+        """
+        Delete a review.
+
+        Only the user who created the review (reviewer) may delete it.
+        """
         review = get_object_or_404(Review, id=id)
         reviewer = review.reviewer
 
@@ -85,9 +148,30 @@ class ReviewDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
 class BaseInformationView(generics.ListAPIView):
+    """
+    Public endpoint that returns aggregated review and marketplace statistics.
+
+    GET:
+        Returns a JSON object with:
+            - review_count: total number of reviews
+            - average_count: average rating across all reviews (0 if none)
+            - business_profile_count: number of users with type 'business'
+            - offer_count: total number of offers
+
+        Response: 200 OK
+            {
+              "review_count": <int>,
+              "average_count": <float>,
+              "business_profile_count": <int>,
+              "offer_count": <int>
+            }
+    """
     permission_classes = [AllowAny]
 
     def get(self, request, *args, **kwargs):
+        """
+        Compute and return aggregate metrics for reviews and marketplace entities.
+        """
         review_count = Review.objects.count()
         average_count = Review.objects.aggregate(Avg('rating'))['rating__avg'] or 0
         business_count = UserProfile.objects.filter(type='business').count()

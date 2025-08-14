@@ -5,6 +5,23 @@ from offers_app.models import OfferDetail
 
 
 class Order(models.Model):
+    """
+    A single purchase of an OfferDetail, with snapshot fields.
+
+    Fields:
+        customer_user (FK UserProfile): Buyer of the order.
+        business_user (FK UserProfile): Owner of the offer (seller).
+        offer_detail (FK OfferDetail): Variant used to create this order.
+        title (str): Snapshot of the offer detail title at creation time.
+        revisions (int): Snapshot of how many revisions are included.
+        delivery_time_in_days (int): Snapshot of promised delivery time (days).
+        price (int): Snapshot of the price at creation time.
+        features (JSON list): Snapshot of included features.
+        offer_type (str): Snapshot of the variant type (basic/standard/premium).
+        status (str): Current status of the order.
+        created_at (datetime): When the order was created.
+        updated_at (datetime): When the order was last updated.
+    """
     
     STATUS_CHOICES = [
         ("in_progress", "In Progress"),

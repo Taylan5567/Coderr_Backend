@@ -69,14 +69,3 @@ class RegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Email already exists.")
         return value
     
-
-class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    password = serializers.CharField()
-
-    class Meta:
-        fields = ['username', 'password']
-
-
-class LogoutSerializer(serializers.Serializer):
-    refresh = serializers.CharField()
