@@ -27,10 +27,10 @@ class ProfileSerializer(serializers.ModelSerializer):
     """
     user = serializers.IntegerField(source='id', read_only=True)
     username = serializers.CharField(read_only=True)
-    first_name = serializers.CharField(write_only=True)
-    last_name = serializers.CharField(write_only=True)
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
     email = serializers.EmailField(write_only=True)
-    type = serializers.ChoiceField(choices=UserProfile.TYPE_CHOICES, write_only=True)
+    type = serializers.ChoiceField(choices=UserProfile.TYPE_CHOICES)
     created_at = serializers.DateTimeField(source='date_joined', read_only=True)
 
     class Meta:
@@ -77,7 +77,8 @@ class ProfilePatchSerializer(serializers.ModelSerializer):
         the custom `update()` implementation below.
     """
     user = serializers.IntegerField(source='id', read_only=True)
-    type = serializers.CharField(write_only=True)
+    type = serializers.ChoiceField(choices=UserProfile.TYPE_CHOICES)
+
     class Meta:
         model = UserProfile
         fields = [
@@ -119,6 +120,8 @@ class ProfileDetailsSerializer(serializers.ModelSerializer):
         used in GET endpoints only.
     """
     user = serializers.IntegerField(source='id', read_only=True)
+    type = serializers.ChoiceField(choices=UserProfile.TYPE_CHOICES)
+
     class Meta:
         model = UserProfile
         fields = [

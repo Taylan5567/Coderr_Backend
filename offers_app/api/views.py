@@ -34,6 +34,7 @@ class OfferListView(generics.ListCreateAPIView):
         ordering_fields (list): The list of fields to order offers by.
     
     """
+    permission_classes = [AllowAny]
     queryset = Offer.objects.all()
     serializer_class = OfferSerializer
     pagination_class = PageNumberSetPagination

@@ -39,7 +39,7 @@ class OfferSerializer(serializers.ModelSerializer):
     - The computed fields are derived per object using aggregates.
     """
     details = OfferDetailsSerializer(many=True, read_only=True)
-    min_price = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
     delivery_time_in_days  = serializers.SerializerMethodField()
     user = serializers.IntegerField(source='id', read_only=True)
 
@@ -54,7 +54,7 @@ class OfferSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'details',
-            'min_price',
+            'price',
             'delivery_time_in_days',
         ]
     
@@ -75,7 +75,7 @@ class OfferSerializer(serializers.ModelSerializer):
         Returns:
             A number or None if no details exist.
         """
-        return obj.details.aggregate(v=Min('delivery_time_in_days'))['v']
+        return obj.details.aggregate(v=Min('delivery_time'))['v']
 
 
 class OfferCreateSerializer(serializers.ModelSerializer):
