@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from offers_app.models import Offer, OfferDetail
 from .serializers import OfferSerializer, OfferUpdateSerializer, OfferCreateSerializer, OneOfferDetailSerializer
 from rest_framework.pagination import PageNumberPagination
@@ -97,7 +97,7 @@ class OfferDetailsView(generics.RetrieveAPIView):
     
     """
     serializer_class = OfferSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     lookup_url_kwarg = 'id' 
 
     def get_serializer_class(self):
@@ -168,7 +168,7 @@ class OneOfferDetailsView(generics.RetrieveAPIView):
         lookup_url_kwarg (str): The name of the URL keyword argument used for the offer detail ID.
     
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     queryset = OfferDetail.objects.all()
     serializer_class = OneOfferDetailSerializer
     lookup_field = 'id'

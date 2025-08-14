@@ -94,6 +94,7 @@ class OfferCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Offer
         fields = [
+            'id',
             'title',
             'image',
             'description',
@@ -125,7 +126,7 @@ class OfferCreateSerializer(serializers.ModelSerializer):
         for detail_data in details_data:
             OfferDetail.objects.create(offer=offer, **detail_data)
         return offer
-
+    
 
 class OfferUpdateSerializer(serializers.ModelSerializer):
     """
@@ -161,6 +162,19 @@ class OfferUpdateSerializer(serializers.ModelSerializer):
             OfferDetail.objects.bulk_create([OfferDetail(offer=offer, **d) for d in details_data])
         return offer
     
+
+    def to_representation(self, instance):
+        """
+        Normalize None values to empty strings for selected optional fields.
+
+        This helps clients avoid extra null checks when rendering.
+        """
+        data = super().to_representation(instance)
+        for space in ["first_name", "last_name", "location", "tel", "description", "working_hours"]:
+            if data.get(space) is None:
+                data[space] = ""
+        return data
+    
 class OneOfferDetailSerializer(serializers.ModelSerializer):
     """
     Serializer for a single OfferDetail.
@@ -184,3 +198,15 @@ class OneOfferDetailSerializer(serializers.ModelSerializer):
             'features',
             'offer_type',
             ]
+        
+    def to_representation(self, instance):
+        """
+        Normalize None values to empty strings for selected optional fields.
+
+        This helps clients avoid extra null checks when rendering.
+        """
+        data = super().to_representation(instance)
+        for space in ["first_name", "last_name", "location", "tel", "description", "working_hours"]:
+            if data.get(space) is None:
+                data[space] = ""
+        return data
