@@ -177,4 +177,4 @@ class BaseInformationView(generics.ListAPIView):
         business_count = UserProfile.objects.filter(type='business').count()
         offer_count = Offer.objects.count()
         
-        return Response({'review_count': review_count, 'average_count': average_count, 'business_profile_count': business_count, 'offer_count': offer_count}, status=status.HTTP_200_OK)
+        return Response({'review_count': review_count, 'average_rating': average_count, 'business_profile_count': business_count, 'offer_count': offer_count}, status=status.HTTP_200_OK)

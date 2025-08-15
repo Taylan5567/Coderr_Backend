@@ -26,22 +26,44 @@ class OfferDetailsSerializer(serializers.ModelSerializer):
             'offer_type',
         ]
 
+class OfferDetailLinkSerializer(serializers.ModelSerializer):
+    """
+    Serializer for a single OfferDetail.
+
+    Exposes the basic data of a variant:
+    - id
+    - title
+    - number of revisions
+    - delivery time in days
+    - price
+    - features (as a list)
+    - variant type (basic, standard, premium)
+    """
+    url = serializers.HyperlinkedIdentityField(
+        view_name='offer-detail',
+        lookup_field='id'
+    )
+
+    class Meta:
+        model = OfferDetail
+        fields = ['id', 'url']
+
+
 class OfferSerializer(serializers.ModelSerializer):
     """
-    Serializer for a complete Offer.
+    Serializer for a single Offer.
 
-    Includes:
-    - core fields of the offer (title, image, description, timestamps)
-    - all related OfferDetails (read-only)
-    
-    Note:
-    - The field "user" returns an identifier as defined below.
-    - The computed fields are derived per object using aggregates.
+    Exposes the basic data of an offer:
+    - id
+    - title
+    - image
+    - description
+    - details
     """
-    details = OfferDetailsSerializer(many=True, read_only=True)
-    price = serializers.SerializerMethodField()
-    delivery_time_in_days  = serializers.SerializerMethodField()
-    user = serializers.IntegerField(source='id', read_only=True)
+    details = OfferDetailLinkSerializer(many=True, read_only=True)
+    min_price = serializers.SerializerMethodField()
+    min_delivery_time = serializers.SerializerMethodField()
+    user = serializers.IntegerField(source='user_id', read_only=True)
 
     class Meta:
         model = Offer
@@ -54,28 +76,16 @@ class OfferSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'details',
-            'price',
-            'delivery_time_in_days',
+            'min_price',
+            'min_delivery_time',
         ]
-    
-    
-    def get_min_price(self, obj):
-        """
-        Return the lowest price among all related OfferDetails.
 
-        Returns:
-            A number or None if no details exist.
-        """
+    def get_min_price(self, obj):
         return obj.details.aggregate(v=Min('price'))['v']
 
-    def get_delivery_time_in_days(self, obj):
-        """
-        Return the smallest delivery time (in days) among all related OfferDetails.
+    def get_min_delivery_time(self, obj):
+        return obj.details.aggregate(v=Min('delivery_time_in_days'))['v']
 
-        Returns:
-            A number or None if no details exist.
-        """
-        return obj.details.aggregate(v=Min('delivery_time'))['v']
 
 
 class OfferCreateSerializer(serializers.ModelSerializer):
@@ -141,6 +151,7 @@ class OfferUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Offer
         fields = [
+            'id',
             'title',
             'image',
             'description',

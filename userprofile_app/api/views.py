@@ -96,6 +96,32 @@ class BusinessView(APIView):
         business = UserProfile.objects.filter(type='business').distinct()
         serializer = ProfileDetailsSerializer(business, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def patch(self, request, pk):
+        """
+        Partially update the profile identified by pk.
+
+        Only the owner of the profile (current user's id equals pk) is allowed
+        to perform the update. Other users receive a 403 response.
+        """
+        profile = get_object_or_404(UserProfile, pk=pk)
+        data = request.data.copy()
+
+        if pk != request.user.id:
+            return Response({"error": "You can only update your own profile."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ProfilePatchSerializer(
+            profile, data=data, partial=True, context={'request': request}
+        )
+
+        if serializer.is_valid():
+            updated_profile = serializer.save()
+            return Response(
+                ProfilePatchSerializer(updated_profile, context={'request': request}).data,
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomerView(APIView):
     """
@@ -116,4 +142,31 @@ class CustomerView(APIView):
         customer = UserProfile.objects.filter(type='customer').distinct()
         serializer = ProfileDetailsSerializer(customer, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
+
+    def patch(self, request, pk):
+        """
+        Partially update the profile identified by pk.
+
+        Only the owner of the profile (current user's id equals pk) is allowed
+        to perform the update. Other users receive a 403 response.
+        """
+        profile = get_object_or_404(UserProfile, pk=pk)
+        data = request.data.copy()
+
+        if pk != request.user.id:
+            return Response({"error": "You can only update your own profile."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ProfilePatchSerializer(
+            profile, data=data, partial=True, context={'request': request}
+        )
+
+        if serializer.is_valid():
+            updated_profile = serializer.save()
+            return Response(
+                ProfilePatchSerializer(updated_profile, context={'request': request}).data,
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

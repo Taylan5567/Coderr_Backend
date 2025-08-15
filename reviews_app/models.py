@@ -26,6 +26,7 @@ class Review(models.Model):
     """
     business_user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='rewiews_as_business')
     reviewer = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='reviews_as_reviewer')
+    description = models.TextField(blank=True)
     rating = models.IntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

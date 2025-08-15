@@ -29,16 +29,15 @@ class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(read_only=True)
     first_name = serializers.CharField()
     last_name = serializers.CharField()
-    email = serializers.EmailField(write_only=True)
+    email = serializers.EmailField(read_only=True)
     type = serializers.ChoiceField(choices=UserProfile.TYPE_CHOICES)
     created_at = serializers.DateTimeField(source='date_joined', read_only=True)
 
     class Meta:
         model = UserProfile
         fields = [
-            'user','username', 'first_name', 'last_name', 'file',
-            'location', 'tel', 'description', 'working_hours', 'type',
-            'email', 'created_at',
+            'user','username', 'first_name', 'last_name', 'file', 'email',
+            'location', 'tel', 'description', 'working_hours', 'type', 'created_at',
         ]
         read_only_fields = fields  
 
@@ -82,7 +81,7 @@ class ProfilePatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'user','username', 'first_name', 'last_name', 'file',
+            'user','username', 'first_name', 'last_name', 'file', 'email',
             'location', 'tel', 'description', 'working_hours', 'type',
             'email', 'created_at',
         ]
@@ -101,6 +100,7 @@ class ProfilePatchSerializer(serializers.ModelSerializer):
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.location = validated_data.get('location', instance.location)
+        instance.email = validated_data.get('email', instance.email)
         instance.tel = validated_data.get('tel', instance.tel)
         instance.description = validated_data.get('description', instance.description)
         instance.working_hours = validated_data.get('working_hours', instance.working_hours)
@@ -125,7 +125,7 @@ class ProfileDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'user','username', 'first_name', 'last_name', 'file',
+            'user','username', 'first_name', 'last_name', 'file', 'email',
             'location', 'tel', 'description', 'working_hours', 'type',
             'email', 'created_at',
         ]
@@ -137,7 +137,7 @@ class ProfileDetailsSerializer(serializers.ModelSerializer):
         This helps clients avoid extra null checks when rendering.
         """
         data = super().to_representation(instance)
-        for space in ["first_name", "last_name", "location", "tel", "description", "working_hours"]:
+        for space in ["first_name", "last_name", "location", "tel", "description", "working_hours", "email"]:
             if data.get(space) is None:
                 data[space] = ""
         return data
