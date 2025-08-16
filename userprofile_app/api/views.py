@@ -47,14 +47,11 @@ class ProfileDetailView(APIView):
         Retrieve and return the profile identified by pk.
         """
         user = request.user
-        serializer = ProfileSerializer(UserProfile.objects.get(pk=pk), context={'request': request})
+        profile = get_object_or_404(UserProfile, pk=pk)
 
-        if not UserProfile.objects.filter(pk=pk).exists():
-            return Response({"error": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    
+        return Response(ProfileSerializer(profile, context={'request': request}).data)
+
     def patch(self, request, pk):
         """
         Partially update the profile identified by pk.

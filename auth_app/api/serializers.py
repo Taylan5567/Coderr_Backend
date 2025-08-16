@@ -45,10 +45,6 @@ class RegistrationSerializer(serializers.ModelSerializer):
             username=username,
             type=self.validated_data['type']
         )
-
-        if pw != repeated_pw:
-            raise serializers.ValidationError({'error': 'Password dont match'})
-
         
         user.save()
         return user

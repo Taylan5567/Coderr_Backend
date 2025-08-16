@@ -8,8 +8,6 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from .serializers import RegistrationSerializer
 
 
-
-
 class RegistrationView(APIView):
     """
     API endpoint for user registration.
@@ -34,6 +32,13 @@ class RegistrationView(APIView):
             try:
                 user = serializer.save()
                 user.set_password(serializer.validated_data['password'])
+
+                if not user.email:
+                    return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+                
+                if serializer.validated_data['password'] != serializer.validated_data['repeated_password']:
+                    return Response({"error": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+
                 user.save()
                 token, _ = Token.objects.get_or_create(user=user)
                 
