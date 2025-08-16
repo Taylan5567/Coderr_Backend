@@ -8,6 +8,8 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework import generics
 from rest_framework import filters
 from django.db.models import Min
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.exceptions import ValidationError
 
 
 
@@ -38,7 +40,7 @@ class OfferListView(generics.ListCreateAPIView):
     queryset = Offer.objects.all()
     serializer_class = OfferSerializer
     pagination_class = PageNumberSetPagination
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'description']
     ordering_fields = ['updated_at', 'min_price']
     ordering = ['updated_at', 'min_price']
@@ -58,16 +60,38 @@ class OfferListView(generics.ListCreateAPIView):
             delivery_time_in_days=Min('details__delivery_time_in_days'),
         )
 
-        user_id = self.request.query_params.get('user_id')
+        queryset = queryset.annotate(min_price=Min('details__price'))
+
+        user_id = self.request.query_params.get('user_id', None)
         if user_id:
             queryset = queryset.filter(user_id=user_id)
-
-        price = self.request.query_params.get('price')
-        if price:
-            queryset = queryset.filter(min_price__gte=price)  
-
-        return queryset
+        
+        min_price_param = self.request.query_params.get('min_price', None)
+        if min_price_param:
+            try:
+                min_price_val = int(min_price_param)
+            except:
+                raise ValidationError({"min_price": "min_price has to be a number"})
+            queryset = queryset.filter(min_price__gte=min_price_val)
+        
+        min_delivery_time_param = self.request.query_params.get('min_delivery_time', None)
+        if min_delivery_time_param:
+            try:
+                min_delivery_time_val = int(min_delivery_time_param)
+            except:
+                raise ValidationError({"min_delivery_time": "min_delivery_time has to be a number"})
+            queryset = queryset.filter(delivery_time_in_days__gte=min_delivery_time_val)
+        
+        return queryset.distinct()
     
+
+    def get_permissions_classes(self,request):
+        if request.method == 'POST':
+            return [AllowAny()]
+        elif request.method in ['PATCH', 'PUT', 'DELETE']:
+            return [IsAuthenticated()]
+        return super().get_permissions(request)
+
     def post(self, request):
         """
         Create a new offer.
@@ -115,7 +139,7 @@ class OfferDetailsView(generics.RetrieveAPIView):
             min_price=Min('details__price'),
             delivery_time_in_days=Min('details__delivery_time_in_days'),
         )    
-
+    
     def patch(self, request, id):
         """
         Update an existing offer.
@@ -149,7 +173,7 @@ class OfferDetailsView(generics.RetrieveAPIView):
         is_owner = offer.user_id == user.id
 
         if not is_owner:
-            return Response({"error": "You are not the owner of this offer."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "You are not the owner of this offer."}, status=status.HTTP_401_UNAUTHORIZED)
 
         offer.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -174,3 +198,12 @@ class OneOfferDetailsView(generics.RetrieveAPIView):
     serializer_class = OneOfferDetailSerializer
     lookup_field = 'id'
     lookup_url_kwarg = 'id'
+
+    def get_queryset(self):
+        """
+        Get the queryset of offer details based on query parameters.
+        """
+        queryset = super().get_queryset()
+        return queryset
+    
+    

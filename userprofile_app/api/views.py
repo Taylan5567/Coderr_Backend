@@ -1,8 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from userprofile_app.models import UserProfile
 
@@ -41,14 +40,20 @@ class ProfileDetailView(APIView):
             403 Forbidden: if the current user does not own this profile
             404 Not Found: if the profile does not exist
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
         """
         Retrieve and return the profile identified by pk.
         """
+        user = request.user
         serializer = ProfileSerializer(UserProfile.objects.get(pk=pk), context={'request': request})
+
+        if not UserProfile.objects.filter(pk=pk).exists():
+            return Response({"error": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
     
     def patch(self, request, pk):
         """

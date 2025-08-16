@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from offers_app.models import Offer, OfferDetail
 from django.db.models import Min
+from userprofile_app.models import UserProfile
+from rest_framework.exceptions import ValidationError
 
 class OfferDetailsSerializer(serializers.ModelSerializer):
     """
@@ -26,6 +28,24 @@ class OfferDetailsSerializer(serializers.ModelSerializer):
             'offer_type',
         ]
 
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer for user details.
+
+    Exposes the basic data of a user:
+    - first name
+    - last name
+    - usernameS
+    """
+    class Meta:
+        model = UserProfile
+        fields = [
+            'first_name',
+            'last_name',
+            'username'
+        ]
+
 class OfferDetailLinkSerializer(serializers.ModelSerializer):
     """
     Serializer for a single OfferDetail.
@@ -40,13 +60,36 @@ class OfferDetailLinkSerializer(serializers.ModelSerializer):
     - variant type (basic, standard, premium)
     """
     url = serializers.HyperlinkedIdentityField(
-        view_name='offer-detail',
+        view_name='one-offer-details',
         lookup_field='id'
     )
 
     class Meta:
         model = OfferDetail
         fields = ['id', 'url']
+
+
+    def get_details(self, obj):
+        result = []
+        for detail in obj.details.all():
+            item = {
+                "id": detail.id,
+                "url": f"/offerdetails/{detail.id}/"
+            }
+            result.append(item)
+        return result
+
+    def get_min_price(self, obj):
+        if not int(obj.details.aggregate(Min('price'))['price']):
+            raise ValidationError("have to be a number")
+        prices = obj.details.values_list('price', flat=True)
+        return min(prices) if prices else None
+
+    def get_min_delivery_time(self, obj):
+        if not int(obj.details.aggregate(Min('delivery_time_in_days'))['delivery_time_in_days']):
+            raise ValidationError("have to be a number")
+        times = obj.details.values_list('delivery_time_in_days', flat=True)
+        return min(times) if times else None
 
 
 class OfferSerializer(serializers.ModelSerializer):
@@ -64,6 +107,7 @@ class OfferSerializer(serializers.ModelSerializer):
     min_price = serializers.SerializerMethodField()
     min_delivery_time = serializers.SerializerMethodField()
     user = serializers.IntegerField(source='user_id', read_only=True)
+    user_details = UserDetailSerializer(source='user', read_only=True)
 
     class Meta:
         model = Offer
@@ -78,12 +122,17 @@ class OfferSerializer(serializers.ModelSerializer):
             'details',
             'min_price',
             'min_delivery_time',
+            'user_details',
         ]
 
     def get_min_price(self, obj):
+        if not int(obj.details.aggregate(v=Min('price'))['v']):
+            raise ValidationError("have to be a number")
         return obj.details.aggregate(v=Min('price'))['v']
 
     def get_min_delivery_time(self, obj):
+        if not int(obj.details.aggregate(v=Min('delivery_time_in_days'))['v']):
+            raise ValidationError("have to be a number")
         return obj.details.aggregate(v=Min('delivery_time_in_days'))['v']
 
 
@@ -181,7 +230,7 @@ class OfferUpdateSerializer(serializers.ModelSerializer):
         This helps clients avoid extra null checks when rendering.
         """
         data = super().to_representation(instance)
-        for space in ["first_name", "last_name", "location", "tel", "description", "working_hours"]:
+        for space in ["title", "description", "offer_type"]:
             if data.get(space) is None:
                 data[space] = ""
         return data
@@ -210,3 +259,4 @@ class OneOfferDetailSerializer(serializers.ModelSerializer):
             'offer_type',
             ]
         
+
