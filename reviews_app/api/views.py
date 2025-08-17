@@ -78,6 +78,8 @@ class ReviewsList(generics.ListCreateAPIView):
             201 with created review on success, or appropriate error response.
         """
         serializer = ReviewSerializer(data=request.data, context={'request': request})
+
+        
         
         if not request.user.is_authenticated or request.user.type != 'customer':
             return Response({"error": "You must be logged or be a customer to create a review."}, status=status.HTTP_403_FORBIDDEN)

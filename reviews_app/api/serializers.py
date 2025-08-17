@@ -46,8 +46,12 @@ class ReviewSerializer(serializers.ModelSerializer):
         """
         if attrs['rating'] < 1 or attrs['rating'] > 5:
             raise serializers.ValidationError("Rating must be between 1 and 5.")
+
+        review_exists = Review.objects.filter(reviewer=self.context['request'].user, **attrs).exists()
+        if review_exists:
+            raise serializers.ValidationError("You have already reviewed this item.")
+
         return attrs
-    
 
 
 class ReviewUpdateSerializer(serializers.ModelSerializer):

@@ -79,17 +79,7 @@ class OfferDetailLinkSerializer(serializers.ModelSerializer):
             result.append(item)
         return result
 
-    def get_min_price(self, obj):
-        if not int(obj.details.aggregate(Min('price'))['price']):
-            raise ValidationError("have to be a number")
-        prices = obj.details.values_list('price', flat=True)
-        return min(prices) if prices else None
 
-    def get_min_delivery_time(self, obj):
-        if not int(obj.details.aggregate(Min('delivery_time_in_days'))['delivery_time_in_days']):
-            raise ValidationError("have to be a number")
-        times = obj.details.values_list('delivery_time_in_days', flat=True)
-        return min(times) if times else None
 
 
 class OfferSerializer(serializers.ModelSerializer):
@@ -126,14 +116,10 @@ class OfferSerializer(serializers.ModelSerializer):
         ]
 
     def get_min_price(self, obj):
-        if not int(obj.details.aggregate(v=Min('price'))['v']):
-            raise ValidationError("have to be a number")
-        return obj.details.aggregate(v=Min('price'))['v']
+        return obj.details.aggregate(min=Min('price'))['min']
 
     def get_min_delivery_time(self, obj):
-        if not int(obj.details.aggregate(v=Min('delivery_time_in_days'))['v']):
-            raise ValidationError("have to be a number")
-        return obj.details.aggregate(v=Min('delivery_time_in_days'))['v']
+        return obj.details.aggregate(min=Min('delivery_time_in_days'))['min']
 
 
 
@@ -196,7 +182,9 @@ class OfferUpdateSerializer(serializers.ModelSerializer):
     - Deletes and recreates all related OfferDetails.
     """
     details = OfferDetailsSerializer(many=True)
-    offer_type = serializers.ChoiceField(choices=OfferDetail.OFFER_TYPE, required=False)
+    image = serializers.ImageField(required=False)
+    description = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = Offer
         fields = [
@@ -205,23 +193,36 @@ class OfferUpdateSerializer(serializers.ModelSerializer):
             'image',
             'description',
             'details',
-            'offer_type',
         ]
 
     def update(self, instance, validated_data):
-        """
-        Update an existing Offer and all related OfferDetails.
-
-        Assumptions:
-            - The serializer context contains a request with an authenticated user.
-        """
         details_data = validated_data.pop('details', None)
-        offer = super().update(instance, validated_data)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
         if details_data is not None:
-            offer.details.all().delete()
-            OfferDetail.objects.bulk_create([OfferDetail(offer=offer, **d) for d in details_data])
-        return offer
     
+            existing_details = {}
+            for detail in instance.details.all():
+                existing_details[detail.offer_type] = detail
+                
+            for detail in details_data:
+                offer_type = detail.get('offer_type')
+                if offer_type in existing_details:
+                    detail_instance = existing_details[offer_type]
+                    for attr, value in detail.items():
+                        setattr(detail_instance, attr, value)
+                    detail_instance.save()
+                else:
+                    raise serializers.ValidationError(
+                        f"OfferDetail with type '{offer_type}' does not exist for this offer."
+                    )
+
+        return instance
+
+        
 
     def to_representation(self, instance):
         """
@@ -230,7 +231,7 @@ class OfferUpdateSerializer(serializers.ModelSerializer):
         This helps clients avoid extra null checks when rendering.
         """
         data = super().to_representation(instance)
-        for space in ["title", "description", "offer_type"]:
+        for space in ["title", "description"]:
             if data.get(space) is None:
                 data[space] = ""
         return data

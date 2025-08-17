@@ -17,9 +17,9 @@ class PageNumberSetPagination(PageNumberPagination):
     """
     Custom pagination class to set the page size to 5 and limit the maximum page size to 5.
     """
-    page_size = 5
+    page_size = 6
     page_size_query_param = 'page_size'
-    max_page_size = 5
+    max_page_size = 6
 
 class OfferListView(generics.ListCreateAPIView):
     """
@@ -52,43 +52,39 @@ class OfferListView(generics.ListCreateAPIView):
         return OfferCreateSerializer if self.request.method == 'POST' else OfferSerializer
 
     def get_queryset(self):
-        """
-        Get the queryset of offers based on query parameters.
-        """
-        queryset = Offer.objects.annotate(
-            min_price=Min('details__price'),
-            delivery_time_in_days=Min('details__delivery_time_in_days'),
-        )
-
+        queryset = Offer.objects.all()
         queryset = queryset.annotate(min_price=Min('details__price'))
 
         user_id = self.request.query_params.get('user_id', None)
         if user_id:
             queryset = queryset.filter(user_id=user_id)
-        
+
         min_price_param = self.request.query_params.get('min_price', None)
-        if min_price_param:
+        if min_price_param is not None:
             try:
                 min_price_val = int(min_price_param)
-            except:
-                raise ValidationError({"min_price": "min_price has to be a number"})
-            queryset = queryset.filter(min_price__gte=min_price_val)
-        
-        min_delivery_time_param = self.request.query_params.get('min_delivery_time', None)
-        if min_delivery_time_param:
+            except (ValueError, TypeError):
+                raise ValidationError({"min_price": "min_price must be a valid integer."})
+            queryset = queryset.annotate(min_detail_price=Min('details__price')).filter(min_detail_price__gte=min_price_val)
+
+        max_delivery_time_param = self.request.query_params.get('max_delivery_time', None)
+        if max_delivery_time_param:
             try:
-                min_delivery_time_val = int(min_delivery_time_param)
-            except:
-                raise ValidationError({"min_delivery_time": "min_delivery_time has to be a number"})
-            queryset = queryset.filter(delivery_time_in_days__gte=min_delivery_time_val)
-        
+                max_delivery_time_val = int(max_delivery_time_param)
+            except (ValueError, TypeError):
+                raise ValidationError({"max_delivery_time": "must be a valid number"})
+            
+            queryset = queryset.annotate(
+                min_delivery=Min('details__delivery_time_in_days')
+            ).filter(min_delivery__lte=max_delivery_time_val)
+
+
         return queryset.distinct()
-    
 
     def get_permissions_classes(self,request):
         if request.method == 'POST':
             return [AllowAny()]
-        elif request.method in ['PATCH', 'PUT', 'DELETE']:
+        elif request.method in ['PATCH', 'PUT', 'DELETE', 'GET']:
             return [IsAuthenticated()]
         return super().get_permissions(request)
 
@@ -100,7 +96,10 @@ class OfferListView(generics.ListCreateAPIView):
         user = request.user
         serializer = OfferCreateSerializer(data=request.data, context={'request': request})
         
-        if not getattr(user, 'is_authenticated', False) or getattr(user, 'type', None) != 'business':
+        if not user.is_authenticated:
+            return Response({"error": "You must be logged in to create an offer."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        if user.type != 'business':
             return Response({"error": "Only business users can create offers."}, status=status.HTTP_403_FORBIDDEN)
 
         if serializer.is_valid():
@@ -130,15 +129,11 @@ class OfferDetailsView(generics.RetrieveAPIView):
         Determine the serializer class based on the request method.
         """
         return OfferUpdateSerializer if self.request.method in ('PATCH', 'PUT') else OfferSerializer
-
+    
     def get_queryset(self):
-        """
-        Get the queryset of offers based on query parameters.
-        """
-        return Offer.objects.annotate(
-            min_price=Min('details__price'),
-            delivery_time_in_days=Min('details__delivery_time_in_days'),
-        )    
+        queryset = Offer.objects.all()
+
+        return queryset
     
     def patch(self, request, id):
         """
@@ -150,6 +145,9 @@ class OfferDetailsView(generics.RetrieveAPIView):
         data = request.data.copy()
 
         is_owner = offer.user_id == user.id
+
+        if not user.is_authenticated:
+            return Response({"error": "You must be logged in to update an offer."}, status=status.HTTP_401_UNAUTHORIZED)
 
         if not is_owner:
             return Response({"error": "You are not the owner of this offer."}, status=status.HTTP_403_FORBIDDEN)
@@ -172,8 +170,11 @@ class OfferDetailsView(generics.RetrieveAPIView):
 
         is_owner = offer.user_id == user.id
 
+        if not user.is_authenticated:
+            return Response({"error": "You must be logged in to delete an offer."}, status=status.HTTP_401_UNAUTHORIZED)
+
         if not is_owner:
-            return Response({"error": "You are not the owner of this offer."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "You are not the owner of this offer."}, status=status.HTTP_403_FORBIDDEN)
 
         offer.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -193,7 +194,7 @@ class OneOfferDetailsView(generics.RetrieveAPIView):
         lookup_url_kwarg (str): The name of the URL keyword argument used for the offer detail ID.
     
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     queryset = OfferDetail.objects.all()
     serializer_class = OneOfferDetailSerializer
     lookup_field = 'id'
